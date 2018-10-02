@@ -1,0 +1,12 @@
+﻿syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.message";
+option java_outer_classname = "MessageDataProto";
+option objc_class_prefix = "HLW";
+ 
+package Nanomite.MessageBroker;
+
+message S_SubscriptionMessage {
+	string Topic = 1;
+}
