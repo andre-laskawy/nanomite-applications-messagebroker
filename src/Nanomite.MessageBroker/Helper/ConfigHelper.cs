@@ -7,7 +7,7 @@
 namespace Nanomite.MessageBroker.Helper
 {
     using Microsoft.Extensions.Configuration;
-    using Nanomite.Server.Base;
+    using Nanomite.Core.Server.Base;
     using System;
     using System.IO;
     using System.Net;

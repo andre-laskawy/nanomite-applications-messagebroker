@@ -6,8 +6,8 @@
 
 namespace Nanomite.MessageBroker.Chunking
 {
-    using Nanomite.Services.Network.Common;
-    using Nanomite.Services.Network.Grpc;
+    using Nanomite.Core.Network.Common;
+    using Nanomite.Core.Network.Grpc;
     using System;
     using System.Threading.Tasks;
 

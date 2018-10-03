@@ -14,19 +14,20 @@ namespace Nanomite.MessageBroker
     using Nanomite.MessageBroker.Chunking;
     using Nanomite.MessageBroker.Helper;
     using Nanomite.MessageBroker.Worker;
-    using Nanomite.Server;
-    using Nanomite.Server.Base;
-    using Nanomite.Server.Base.Broker;
-    using Nanomite.Server.Base.Communication;
-    using Nanomite.Server.Base.Handler;
-    using Nanomite.Server.Base.Locator;
-    using Nanomite.Services.Network.Common;
-    using Nanomite.Services.Network.Grpc;
+    using Nanomite.Core;
+    using Nanomite.Core.Network.Common;
+    using Nanomite.Core.Network.Grpc;
     using System;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading.Tasks;
+    using Nanomite.Core.Server.Base.Broker;
+    using Nanomite.Core.Server.Base.Handler;
+    using Nanomite.Core.Server;
+    using Nanomite.Core.Server.Base.Locator;
+    using Nanomite.Core.Network;
+    using Nanomite.Core.Server.Base;
 
     /// <summary>
     /// Defines the <see cref="Broker" />
@@ -80,8 +81,8 @@ namespace Nanomite.MessageBroker
             var config = CloudLocator.GetConfig();
 
             // Workers to handle messages (commands /fetch / messages)
-            this.ActionWorker = new ActionWorker();
-            this.FetchWorker = new FetchWorker();
+            this.ActionWorker = new ActionWorker(config.SrcDeviceId);
+            this.FetchWorker = new FetchWorker(config.SrcDeviceId);
         }
 
         /// <inheritdoc />

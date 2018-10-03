@@ -1,8 +1,8 @@
 ﻿using Google.Protobuf.WellKnownTypes;
-using Nanomite.Server.Base.Handler;
-using Nanomite.Server.Base.Locator;
-using Nanomite.Services.Network.Common.Models;
-using Nanomite.Services.Network.Grpc;
+using Nanomite.Core.Network.Common.Models;
+using Nanomite.Core.Network.Grpc;
+using Nanomite.Core.Server.Base.Handler;
+using Nanomite.Core.Server.Base.Locator;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

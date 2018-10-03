@@ -8,14 +8,14 @@ namespace Nanomite.MessageBroker.Worker
 {
     using Grpc.Core;
     using Nanomite.MessageBroker.Helper;
-    using Nanomite.Server.Base.Handler;
-    using Nanomite.Server.Base.Worker;
-    using Nanomite.Services.Network.Common;
-    using Nanomite.Services.Network.Grpc;
     using NLog;
     using System;
     using System.Linq;
     using System.Threading.Tasks;
+    using Nanomite.Core.Server.Base.Worker;
+    using Nanomite.Core.Network.Grpc;
+    using Nanomite.Core.Network.Common;
+    using Nanomite.Core.Server.Base.Handler;
 
     /// <summary>
     /// Defines the <see cref="ActionWorker" />
@@ -23,16 +23,23 @@ namespace Nanomite.MessageBroker.Worker
     public class ActionWorker : CommonActionWorker
     {
         /// <summary>
+        /// The broker identifier
+        /// </summary>
+        private string brokerId;
+
+        /// <summary>
         /// Gets or sets a value indicating whether the cloud is ready for a client connection.
         /// </summary>
         public bool ReadyForConnections { get; set; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ActionWorker"/> class.
+        /// Initializes a new instance of the <see cref="ActionWorker" /> class.
         /// </summary>
-        public ActionWorker() : base()
+        /// <param name="brokerId">The broker identifier.</param>
+        public ActionWorker(string brokerId) : base()
         {
             this.ReadyForConnections = false;
+            this.brokerId = brokerId;
         }
 
         /// <inheritdoc />

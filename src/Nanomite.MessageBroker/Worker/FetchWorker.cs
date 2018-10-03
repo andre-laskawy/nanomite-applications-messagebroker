@@ -9,24 +9,30 @@ namespace Nanomite.MessageBroker.Worker
     using Grpc.Core;
     using Nanomite.Common.Models.Base;
     using Nanomite.MessageBroker.Helper;
-    using Nanomite.Server;
-    using Nanomite.Server.Base.Worker;
-    using Nanomite.Services.Network.Grpc;
     using NLog;
     using System;
     using System.Linq;
     using System.Threading.Tasks;
+    using Nanomite.Core.Network.Grpc;
+    using Nanomite.Core.Server.Base.Worker;
+    using Nanomite.Core.Server.Base.Handler;
+    using Google.Protobuf.WellKnownTypes;
+    using Nanomite.Common;
 
     /// <summary>
     /// Defines the <see cref="FetchWorker" />
     /// </summary>
     public class FetchWorker : CommonFetchWorker
     {
+        private string brokerId;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="FetchWorker"/> class.
+        /// Initializes a new instance of the <see cref="FetchWorker" /> class.
         /// </summary>
-        public FetchWorker() : base()
+        /// <param name="brokerId">The broker identifier.</param>
+        public FetchWorker(string brokerId) : base()
         {
+            this.brokerId = brokerId;
         }
 
         /// <summary>
@@ -54,13 +60,26 @@ namespace Nanomite.MessageBroker.Worker
 
                 Log("Processing fetch request for type: " + req.TypeDescription, LogLevel.Trace);
 
-                // come on, this is great ;)
-                Type type = CommonRepositoryHandler.GetAllRepositories().FirstOrDefault(p => p.ProtoTypeUrl == req.TypeDescription).ModelType;
-                bool includeAll = req.InlcudeRelatedEntities;
-                string query = req.Query;
+                Command cmd = new Command() { Type = CommandType.Action, Topic = "GetData" };
+                cmd.Data.Add(Any.Pack(req));
+                cmd.SenderId = this.brokerId;
 
-                var result = CommonRepositoryHandler.GetListByQuery(type, query, includeAll).Cast<IBaseModel>().Select(p => p.MapToProto());
-                return Ok(result.ToList());
+                var result = await CommonSubscriptionHandler.ForwardByTopicAndWaitForResponse(this.brokerId, cmd, cmd.Topic);
+                if(result == null)
+                {
+                    return BadRequest("Unknown fetch exception");
+                }
+
+                GrpcResponse response = new GrpcResponse() { Result = ResultCode.Ok };
+                response.Data.Add(result.Data);
+
+                if(result.Data.Count > 0
+                    && result.Data.FirstOrDefault().TypeUrl == Any.Pack(new S_Exception()).TypeUrl)
+                {
+                    response.Result = ResultCode.Error;
+                }
+
+                return response;
             }
             catch (Exception ex)
             {
