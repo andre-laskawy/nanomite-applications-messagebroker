@@ -78,23 +78,20 @@ namespace Nanomite.MessageBroker
             });
 
             //config
-            var config = CloudLocator.GetConfig();
+            var config = CloudLocator.GetConfig() as ConfigHelper;
+
+            // workaround to give access to the authentication service
+            string authServiceStreamId = config.Secret.Hash(config.Secret + "Authentication");
+            string dataAccssStreamId = config.Secret.Hash(config.Secret + "DataAccess");
 
             // Workers to handle messages (commands /fetch / messages)
-            this.ActionWorker = new ActionWorker(config.SrcDeviceId);
-            this.FetchWorker = new FetchWorker(config.SrcDeviceId);
+            this.ActionWorker = new ActionWorker(config.SrcDeviceId, authServiceStreamId, dataAccssStreamId);
+            this.FetchWorker = new FetchWorker(config.SrcDeviceId, authServiceStreamId);
         }
 
         /// <inheritdoc />
         public override void AddMiddlewares(dynamic app, dynamic env)
         {
-            // use mvc
-            (app as IApplicationBuilder).UseMvc(routes =>
-            {
-                routes.MapRoute(
-                       name: "default",
-                       template: "{controller=Home}/{action=Index}/{id?}");
-            });
         }
 
         /// <inheritdoc />

@@ -4,8 +4,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
 
-    <OutputType>Exe</OutputType>
-
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
     <Version>$(Version)</Version>
@@ -18,7 +16,7 @@
     <PublishWithAspNetCoreTargetManifest>false</PublishWithAspNetCoreTargetManifest>
     <BuildServerSideRenderer>false</BuildServerSideRenderer>
     <StartupObject>Nanomite.MessageBroker.Broker</StartupObject>
-    <AssemblyName>Nanomite.MessageBroker</AssemblyName>
+    <AssemblyName>Nanomite.Core.Server.MessageBroker</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,7 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nanomite.Core.Server" Version="1.0.0" />
+    <PackageReference Include="Nanomite.Core.Network" Version="1.0.8" />
+    <PackageReference Include="Nanomite.Core.Server" Version="1.0.2" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,18 +1,25 @@
-﻿using Google.Protobuf.WellKnownTypes;
-using Nanomite.Core.Network.Common.Models;
-using Nanomite.Core.Network.Grpc;
-using Nanomite.Core.Server.Base.Handler;
-using Nanomite.Core.Server.Base.Locator;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+﻿///-----------------------------------------------------------------
+///   File:         TokenObserver.cs
+///   Author:   	Andre Laskawy           
+///   Date:         03.10.2018 15:36:55
+///-----------------------------------------------------------------
 
 namespace Nanomite.MessageBroker.Helper
 {
+    using Google.Protobuf.WellKnownTypes;
+    using Nanomite.Core.Network.Common;
+    using Nanomite.Core.Network.Common.Models;
+    using Nanomite.Core.Server.Base.Handler;
+    using Nanomite.Core.Server.Base.Locator;
+    using System;
+    using System.Collections.Concurrent;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    /// <summary>
+    /// Defines the <see cref="TokenObserver" />
+    /// </summary>
     public class TokenObserver
     {
         /// <summary>
@@ -36,23 +43,30 @@ namespace Nanomite.MessageBroker.Helper
         private static string SrcId = null;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="StreamQueueWorker{T}"/> class.
+        /// Initializes static members of the <see cref="TokenObserver"/> class.
         /// </summary>
-        /// <param name="stream">The <see cref="IStream"/></param>
         static TokenObserver()
         {
             observingTimer = new Timer(Run, null, 0, 1000 * 60);
-            SrcId = CloudLocator.GetConfig().SrcDeviceId;
+            var config = CloudLocator.GetConfig() as ConfigHelper;
+            SrcId = config.SrcDeviceId;
         }
 
         /// <summary>
         /// Checks if the received token is valid
         /// </summary>
-        public static async Task<bool> IsValid(string token)
+        /// <param name="token">The token<see cref="string"/></param>
+        /// <returns>The <see cref="Task{bool}"/></returns>
+        public static async Task<NetworkUser> IsValid(string token)
         {
+            if (string.IsNullOrEmpty(token))
+            {
+                return null;
+            }
+
             if (tokenCollection.ContainsKey(token))
             {
-                return true;
+                return tokenCollection[token];
             }
             else
             {
@@ -65,6 +79,7 @@ namespace Nanomite.MessageBroker.Helper
         /// <summary>
         /// Runs the timer which will check if the tokens are still valid
         /// </summary>
+        /// <param name="state">The state<see cref="object"/></param>
         public static async void Run(object state)
         {
             if (IsBusy)
@@ -81,7 +96,7 @@ namespace Nanomite.MessageBroker.Helper
                 {
                     NetworkUser user = tokenCollection[token];
                     user.AuthenticationToken = token;
-                    if (!await TokenIsValid(user))
+                    if (await TokenIsValid(user) == null)
                     {
                         NetworkUser u = null;
                         while (!tokenCollection.TryRemove(token, out u))
@@ -101,7 +116,13 @@ namespace Nanomite.MessageBroker.Helper
             }
         }
 
-        private static async Task<bool> TokenIsValid(NetworkUser user)
+        /// <summary>
+        /// Tokens the is valid.
+        /// </summary>
+        /// <param name="user">The user<see cref="NetworkUser" /></param>
+        /// <returns>
+        /// The <see cref="Task{bool}" /></returns>
+        private static async Task<NetworkUser> TokenIsValid(NetworkUser user)
         {
             Command cmd = new Command() { Type = CommandType.Action, Topic = StaticCommandKeys.Connect };
             cmd.Data.Add(Any.Pack(user));
@@ -130,11 +151,11 @@ namespace Nanomite.MessageBroker.Helper
                         }
                     }
 
-                    return true;
+                    return newUser;
                 }
             }
 
-            return false;
+            return null;
         }
     }
 }

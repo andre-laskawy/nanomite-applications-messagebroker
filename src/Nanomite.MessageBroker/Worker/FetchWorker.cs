@@ -7,32 +7,40 @@
 namespace Nanomite.MessageBroker.Worker
 {
     using Grpc.Core;
-    using Nanomite.Common.Models.Base;
     using Nanomite.MessageBroker.Helper;
     using NLog;
     using System;
     using System.Linq;
     using System.Threading.Tasks;
-    using Nanomite.Core.Network.Grpc;
     using Nanomite.Core.Server.Base.Worker;
     using Nanomite.Core.Server.Base.Handler;
     using Google.Protobuf.WellKnownTypes;
     using Nanomite.Common;
+    using Nanomite.Core.Network.Common;
 
     /// <summary>
     /// Defines the <see cref="FetchWorker" />
     /// </summary>
     public class FetchWorker : CommonFetchWorker
     {
+        /// <summary>
+        /// The broker identifier
+        /// </summary>
         private string brokerId;
+
+        /// <summary>
+        /// The authentication service identifier
+        /// </summary>
+        private string authServiceId;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FetchWorker" /> class.
         /// </summary>
         /// <param name="brokerId">The broker identifier.</param>
-        public FetchWorker(string brokerId) : base()
+        public FetchWorker(string brokerId, string authServiceId) : base()
         {
             this.brokerId = brokerId;
+            this.authServiceId = authServiceId;
         }
 
         /// <summary>
@@ -48,7 +56,8 @@ namespace Nanomite.MessageBroker.Worker
         {
             try
             {
-                if (!await TokenObserver.IsValid(token))
+                if (streamId != this.authServiceId
+                    && await TokenObserver.IsValid(token) == null)
                 {
                     return Unauthorized();
                 }

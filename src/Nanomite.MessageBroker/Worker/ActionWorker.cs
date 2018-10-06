@@ -16,6 +16,10 @@ namespace Nanomite.MessageBroker.Worker
     using Nanomite.Core.Network.Grpc;
     using Nanomite.Core.Network.Common;
     using Nanomite.Core.Server.Base.Handler;
+    using Nanomite.Core.Network.Common.Models;
+    using Nanomite.Core.Network;
+    using Google.Protobuf.WellKnownTypes;
+    using Nanomite.Common;
 
     /// <summary>
     /// Defines the <see cref="ActionWorker" />
@@ -28,6 +32,16 @@ namespace Nanomite.MessageBroker.Worker
         private string brokerId;
 
         /// <summary>
+        /// The authentication service identifier
+        /// </summary>
+        private string authServiceId;
+
+        /// <summary>
+        /// The data access stream identifier
+        /// </summary>
+        private string dataAccessStreamId;
+
+        /// <summary>
         /// Gets or sets a value indicating whether the cloud is ready for a client connection.
         /// </summary>
         public bool ReadyForConnections { get; set; }
@@ -36,18 +50,24 @@ namespace Nanomite.MessageBroker.Worker
         /// Initializes a new instance of the <see cref="ActionWorker" /> class.
         /// </summary>
         /// <param name="brokerId">The broker identifier.</param>
-        public ActionWorker(string brokerId) : base()
+        public ActionWorker(string brokerId, string authServiceId, string dataAccessStreamId) : base()
         {
             this.ReadyForConnections = false;
             this.brokerId = brokerId;
+            this.authServiceId = authServiceId;
+            this.dataAccessStreamId = dataAccessStreamId;
         }
 
         /// <inheritdoc />
         public override async Task<GrpcResponse> StreamConnected(IStream<Command> stream, string token, Metadata header)
         {
-            if (!await TokenObserver.IsValid(token))
+            if (stream.Id != this.dataAccessStreamId
+                && stream.Id != this.authServiceId)
             {
-                return Unauthorized();
+                if (await TokenObserver.IsValid(token) == null)
+                {
+                    return Unauthorized();
+                }
             }
 
             CommonSubscriptionHandler.RegisterStream(stream, stream.Id);
@@ -73,13 +93,25 @@ namespace Nanomite.MessageBroker.Worker
 
             try
             {
-                if (!await TokenObserver.IsValid(token))
-                {
-                    return Unauthorized();
-                }
-
                 Log("Begin command: " + cmd.Topic, LogLevel.Debug);
-                return HandleCommand(cmd, streamId, cloudId);
+
+                // auth or data access service or connect
+                if (streamId == this.dataAccessStreamId
+                    || streamId == this.authServiceId
+                    || cmd.Topic == StaticCommandKeys.Connect)
+                {
+                    return await HandleCommand(null, cmd, streamId, cloudId);
+                }
+                else
+                {
+                    NetworkUser user = await TokenObserver.IsValid(token);
+                    if (user == null)
+                    {
+                        return Unauthorized();
+                    }
+
+                    return await HandleCommand(user, cmd, streamId, cloudId);
+                }
             }
             catch (Exception ex)
             {
@@ -99,12 +131,25 @@ namespace Nanomite.MessageBroker.Worker
         /// <param name="streamId">The streamId<see cref="string"/></param>
         /// <param name="cloudId">The cloud identifier.</param>
         /// <returns>a task</returns>
-        private GrpcResponse HandleCommand(Command cmd, string streamId, string cloudId)
+        private async Task<GrpcResponse> HandleCommand(NetworkUser user, Command cmd, string streamId, string cloudId)
         {
             GrpcResponse result = Ok();
             switch (cmd.Topic)
             {
-                case "Subscribe":
+                case StaticCommandKeys.Connect:
+                    CommonSubscriptionHandler.ForwardByTopic(cmd, cmd.Topic);
+
+                    var response = await AsyncCommandProcessor.ProcessCommand(cmd, 10);
+                    var proto = response.Data.FirstOrDefault();
+                    if(proto.TypeUrl == Any.Pack(new S_Exception()).TypeUrl)
+                    {
+                        var ex = proto.CastToModel<S_Exception>();
+                        return BadRequest(ex.Message);
+                    }
+
+                    return Ok(proto);
+
+                case StaticCommandKeys.Subscribe:
                     try
                     {
                         S_SubscriptionMessage msg = cmd.Data.FirstOrDefault()?.CastToModel<S_SubscriptionMessage>();
@@ -122,7 +167,7 @@ namespace Nanomite.MessageBroker.Worker
                     }
 
                     break;
-                case "UnSubcribe":
+                case StaticCommandKeys.Unsubscribe:
                     try
                     {
                         S_SubscriptionMessage msg = cmd.Data.FirstOrDefault()?.CastToModel<S_SubscriptionMessage>();
