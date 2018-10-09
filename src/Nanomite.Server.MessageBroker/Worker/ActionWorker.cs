@@ -4,10 +4,10 @@
 ///   Date:         02.10.2018 19:45:39
 ///-----------------------------------------------------------------
 
-namespace Nanomite.MessageBroker.Worker
+namespace Nanomite.Server.MessageBroker.Worker
 {
     using Grpc.Core;
-    using Nanomite.MessageBroker.Helper;
+    using Nanomite.Server.MessageBroker.Helper;
     using NLog;
     using System;
     using System.Linq;
@@ -20,6 +20,7 @@ namespace Nanomite.MessageBroker.Worker
     using Nanomite.Core.Network;
     using Google.Protobuf.WellKnownTypes;
     using Nanomite.Common;
+    using System.Collections.Concurrent;
 
     /// <summary>
     /// Defines the <see cref="ActionWorker" />
@@ -32,14 +33,14 @@ namespace Nanomite.MessageBroker.Worker
         private string brokerId;
 
         /// <summary>
-        /// The authentication service identifier
+        /// The token observer
         /// </summary>
-        private string authServiceId;
+        private TokenObserver tokenObserver;
 
         /// <summary>
-        /// The data access stream identifier
+        /// A collection of all meta data for all connected services
         /// </summary>
-        private string dataAccessStreamId;
+        private ConcurrentDictionary<string, ServiceMetaData> serviceMetaData = new ConcurrentDictionary<string, ServiceMetaData>();
 
         /// <summary>
         /// Gets or sets a value indicating whether the cloud is ready for a client connection.
@@ -50,28 +51,34 @@ namespace Nanomite.MessageBroker.Worker
         /// Initializes a new instance of the <see cref="ActionWorker" /> class.
         /// </summary>
         /// <param name="brokerId">The broker identifier.</param>
-        public ActionWorker(string brokerId, string authServiceId, string dataAccessStreamId) : base()
+        /// <param name="secret">The secret.</param>
+        /// <param name="tokenObserver">The token observer.</param>
+        public ActionWorker(string brokerId, TokenObserver tokenObserver) : base()
         {
             this.ReadyForConnections = false;
             this.brokerId = brokerId;
-            this.authServiceId = authServiceId;
-            this.dataAccessStreamId = dataAccessStreamId;
+            this.tokenObserver = tokenObserver;
         }
 
         /// <inheritdoc />
         public override async Task<GrpcResponse> StreamConnected(IStream<Command> stream, string token, Metadata header)
         {
-            if (stream.Id != this.dataAccessStreamId
-                && stream.Id != this.authServiceId)
+            if (await this.tokenObserver.IsValid(token) == null)
             {
-                if (await TokenObserver.IsValid(token) == null)
-                {
-                    return Unauthorized();
-                }
+                return Unauthorized();
             }
 
             CommonSubscriptionHandler.RegisterStream(stream, stream.Id);
             CommonBaseHandler.Log(this.ToString(), string.Format("Client stream {0} is connected.", stream.Id), LogLevel.Info);
+
+            // Send service metadata informations to client after successful connect
+            foreach (var metaData in serviceMetaData.Values)
+            {
+                Command cmd = new Command { Type = CommandType.Action, Topic = StaticCommandKeys.ServiceMetaData };
+                cmd.Data.Add(Any.Pack(metaData));
+                stream.AddToQueue(cmd);
+            }
+            
             return Ok();
         }
 
@@ -95,23 +102,20 @@ namespace Nanomite.MessageBroker.Worker
             {
                 Log("Begin command: " + cmd.Topic, LogLevel.Debug);
 
-                // auth or data access service or connect
-                if (streamId == this.dataAccessStreamId
-                    || streamId == this.authServiceId
-                    || cmd.Topic == StaticCommandKeys.Connect)
+                // connect 
+                if(cmd.Topic == StaticCommandKeys.Connect)
                 {
                     return await HandleCommand(null, cmd, streamId, cloudId);
                 }
-                else
-                {
-                    NetworkUser user = await TokenObserver.IsValid(token);
-                    if (user == null)
-                    {
-                        return Unauthorized();
-                    }
 
-                    return await HandleCommand(user, cmd, streamId, cloudId);
+                // other commands
+                NetworkUser user = await this.tokenObserver.IsValid(token);
+                if (user == null)
+                {
+                    return Unauthorized();
                 }
+
+                return await HandleCommand(user, cmd, streamId, cloudId);
             }
             catch (Exception ex)
             {
@@ -137,18 +141,37 @@ namespace Nanomite.MessageBroker.Worker
             switch (cmd.Topic)
             {
                 case StaticCommandKeys.Connect:
-                    CommonSubscriptionHandler.ForwardByTopic(cmd, cmd.Topic);
-
-                    var response = await AsyncCommandProcessor.ProcessCommand(cmd, 10);
-                    var proto = response.Data.FirstOrDefault();
-                    if(proto.TypeUrl == Any.Pack(new S_Exception()).TypeUrl)
+                    user = cmd.Data.FirstOrDefault()?.CastToModel<NetworkUser>();
+                    if (user == null)
                     {
-                        var ex = proto.CastToModel<S_Exception>();
-                        return BadRequest(ex.Message);
+                        throw new Exception("Invalid connection data.");
                     }
 
-                    return Ok(proto);
+                    return await this.tokenObserver.Authenticate(user.LoginName, user.PasswordHash);
 
+                case StaticCommandKeys.ServiceMetaData:
+                    ServiceMetaData metaData = cmd.Data.FirstOrDefault()?.CastToModel<ServiceMetaData>();
+                    if (metaData == null)
+                    {
+                        throw new Exception("Invalid data for service meta data information.");
+                    }
+
+                    if (serviceMetaData.ContainsKey(metaData.ServiceAddress))
+                    {
+                        ServiceMetaData s;
+                        while (!serviceMetaData.TryRemove(metaData.ServiceAddress, out s))
+                        {
+                            await Task.Delay(1);
+                        }
+                    }
+
+                    while (!serviceMetaData.TryAdd(metaData.ServiceAddress, metaData))
+                    {
+                        await Task.Delay(1);
+                    }
+
+                    Log("Added service metadata for service " + streamId, LogLevel.Debug);
+                    break;
                 case StaticCommandKeys.Subscribe:
                     try
                     {

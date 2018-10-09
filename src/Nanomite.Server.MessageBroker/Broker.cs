@@ -4,30 +4,24 @@
 ///   Date:         02.10.2018 19:56:42
 ///-----------------------------------------------------------------
 
-namespace Nanomite.MessageBroker
+namespace Nanomite.Server.MessageBroker
 {
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.AspNetCore.SpaServices.AngularCli;
-    using Microsoft.Extensions.DependencyInjection;
     using Nanomite.Common.Common.Services.GrpcService;
-    using Nanomite.MessageBroker.Chunking;
-    using Nanomite.MessageBroker.Helper;
-    using Nanomite.MessageBroker.Worker;
-    using Nanomite.Core;
+    using Nanomite.Core.Network;
     using Nanomite.Core.Network.Common;
-    using Nanomite.Core.Network.Grpc;
+    using Nanomite.Core.Server;
+    using Nanomite.Core.Server.Base;
+    using Nanomite.Core.Server.Base.Broker;
+    using Nanomite.Core.Server.Base.Handler;
+    using Nanomite.Core.Server.Base.Locator;
+    using Nanomite.MessageBroker.Chunking;
+    using Nanomite.Server.MessageBroker.Helper;
+    using Nanomite.Server.MessageBroker.Worker;
     using System;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading.Tasks;
-    using Nanomite.Core.Server.Base.Broker;
-    using Nanomite.Core.Server.Base.Handler;
-    using Nanomite.Core.Server;
-    using Nanomite.Core.Server.Base.Locator;
-    using Nanomite.Core.Network;
-    using Nanomite.Core.Server.Base;
 
     /// <summary>
     /// Defines the <see cref="Broker" />
@@ -80,13 +74,12 @@ namespace Nanomite.MessageBroker
             //config
             var config = CloudLocator.GetConfig() as ConfigHelper;
 
-            // workaround to give access to the authentication service
-            string authServiceStreamId = config.Secret.Hash(config.Secret + "Authentication");
-            string dataAccssStreamId = config.Secret.Hash(config.Secret + "DataAccess");
+            // init the connection to the authentication server
+            var tokenObserver = new TokenObserver(config.AuthServerAddress, config.SrcDeviceId);
+            tokenObserver.Init(config.SrcDeviceId, config.BrokerPassword, config.Secret).Await(30);
 
             // Workers to handle messages (commands /fetch / messages)
-            this.ActionWorker = new ActionWorker(config.SrcDeviceId, authServiceStreamId, dataAccssStreamId);
-            this.FetchWorker = new FetchWorker(config.SrcDeviceId, authServiceStreamId);
+            this.ActionWorker = new ActionWorker(config.SrcDeviceId, tokenObserver);
         }
 
         /// <inheritdoc />
@@ -123,16 +116,9 @@ namespace Nanomite.MessageBroker
 
             // Grpc server actions
             server.OnAction = async (cmd, streamId, token, header) => { return await ActionWorker.ProcessCommand(srcDeviceId, cmd, streamId, token, header); };
-            server.OnFetch = async (request, streamId, token, header) => { return await FetchWorker.ProcessFetch(request, streamId, token, header); };
+            server.OnStreaming = async (cmd, stream, token, header) => { return await ActionWorker.ProcessCommand(srcDeviceId, cmd, stream.Id, token, header); };
             server.OnStreamOpened = async (stream, token, header) => { return await ActionWorker.StreamConnected(stream, token, header); };
-            server.OnStreaming = async (cmd, stream, token, header) =>
-            {
-                return await ActionWorker.ProcessCommand(srcDeviceId, cmd, stream.Id, token, header);
-            };
-            server.OnClientDisconnected = async (id) =>
-            {
-                await CommonSubscriptionHandler.UnregisterStream(id);
-            };
+            server.OnClientDisconnected = async (id) => { await ActionWorker.StreamDisconnected(id); };
             server.OnLog += (sender, srcid, msg, level) =>
             {
                 CommonBaseHandler.Log(sender.ToString(), msg, level);

@@ -4,7 +4,7 @@
 ///   Date:         02.10.2018 16:47:28
 ///-----------------------------------------------------------------
 
-namespace Nanomite.MessageBroker.Helper
+namespace Nanomite.Server.MessageBroker.Helper
 {
     using Microsoft.Extensions.Configuration;
     using Nanomite.Core.Server.Base;
@@ -35,6 +35,21 @@ namespace Nanomite.MessageBroker.Helper
             set
             {
                 Configuration["LocalCloudAddress"] = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the authentication server address.
+        /// </summary>
+        public string AuthServerAddress
+        {
+            get
+            {
+                return Convert.ToString(Configuration["AuthServerAddress"]);
+            }
+            set
+            {
+                Configuration["AuthServerAddress"] = value;
             }
         }
 
@@ -103,6 +118,21 @@ namespace Nanomite.MessageBroker.Helper
             set
             {
                 Configuration["Secret"] = value.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the broker user password.
+        /// </summary>
+        public string BrokerPassword
+        {
+            get
+            {
+                return Configuration["BrokerPassword"];
+            }
+            set
+            {
+                Configuration["BrokerPassword"] = value.ToString();
             }
         }
 

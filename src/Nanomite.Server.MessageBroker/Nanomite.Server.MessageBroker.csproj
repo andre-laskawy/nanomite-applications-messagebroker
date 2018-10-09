@@ -15,8 +15,8 @@
     <!-- Set this to true if you enable server-side prerendering -->
     <PublishWithAspNetCoreTargetManifest>false</PublishWithAspNetCoreTargetManifest>
     <BuildServerSideRenderer>false</BuildServerSideRenderer>
-    <StartupObject>Nanomite.MessageBroker.Broker</StartupObject>
-    <AssemblyName>Nanomite.Core.Server.MessageBroker</AssemblyName>
+    <StartupObject>Nanomite.Server.MessageBroker.Broker</StartupObject>
+    <AssemblyName>Nanomite.Server.MessageBroker</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,8 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nanomite.Core.Network" Version="1.0.8" />
-    <PackageReference Include="Nanomite.Core.Server" Version="1.0.2" />
+    <PackageReference Include="Nanomite.Core.Network" Version="1.0.22" />
+    <PackageReference Include="Nanomite.Core.Server" Version="1.0.4" />
   </ItemGroup>
 
   <ItemGroup>
