@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nanomite.Core.Network" Version="1.0.22" />
+    <PackageReference Include="Nanomite.Core.Network" Version="1.0.28" />
     <PackageReference Include="Nanomite.Core.Server" Version="1.0.4" />
   </ItemGroup>
 

@@ -175,7 +175,7 @@ namespace Nanomite.Server.MessageBroker.Worker
                 case StaticCommandKeys.Subscribe:
                     try
                     {
-                        S_SubscriptionMessage msg = cmd.Data.FirstOrDefault()?.CastToModel<S_SubscriptionMessage>();
+                        SubscriptionMessage msg = cmd.Data.FirstOrDefault()?.CastToModel<SubscriptionMessage>();
                         if (msg == null)
                         {
                             throw new Exception("Invalid data for the subscription message.");
@@ -193,7 +193,7 @@ namespace Nanomite.Server.MessageBroker.Worker
                 case StaticCommandKeys.Unsubscribe:
                     try
                     {
-                        S_SubscriptionMessage msg = cmd.Data.FirstOrDefault()?.CastToModel<S_SubscriptionMessage>();
+                        SubscriptionMessage msg = cmd.Data.FirstOrDefault()?.CastToModel<SubscriptionMessage>();
                         if (msg == null)
                         {
                             throw new Exception("Invalid data for the subscription message.");

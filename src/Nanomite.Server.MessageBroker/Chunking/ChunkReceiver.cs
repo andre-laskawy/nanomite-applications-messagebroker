@@ -21,10 +21,10 @@ namespace Nanomite.MessageBroker.Chunking
         public Action<Command, string, string, Metadata> FileReceived { get; set; }
 
         /// <inheritdoc />
-        internal BlockingCollection<U_File> fileList = new BlockingCollection<U_File>();
+        internal BlockingCollection<File> fileList = new BlockingCollection<File>();
 
         /// <inheritdoc />
-        private ConcurrentDictionary<string, BlockingCollection<U_FileChunk>> fileChunkDictionary = new ConcurrentDictionary<string, BlockingCollection<U_FileChunk>>();
+        private ConcurrentDictionary<string, BlockingCollection<FileChunk>> fileChunkDictionary = new ConcurrentDictionary<string, BlockingCollection<FileChunk>>();
 
         /// <inheritdoc />
         public void ChunkReceived(Command cmd, string streamId, string token, Metadata header)
